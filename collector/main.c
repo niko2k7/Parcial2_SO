@@ -4,6 +4,8 @@
 #include <unistd.h>
 #include <pthread.h>
 #include <signal.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
 #include "config.h"
 #include "shared_data.h"
 #include "network.h"
@@ -14,6 +16,7 @@ int semid_global = -1;
 int server_fd_global = -1;
 
 void cleanup_handler(int signum) {
+    (void)signum;  // Marcar como no usado
     printf("\nLimpiando recursos...\n");
     
     if (server_fd_global != -1) {
