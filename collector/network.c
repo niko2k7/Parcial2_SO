@@ -93,10 +93,22 @@ int find_or_create_host(shared_data_t *data, const char *ip) {
     // Buscar host existente
     for (int i = 0; i < data->num_hosts; i++) {
         if (strcmp(data->hosts[i].ip, ip) == 0) {
+            data->hosts[i].active = 1;
             return i;
         }
     }
     
+
+    // Reutilizar un host inactivo
+    for (int i = 0; i < data->num_hosts; i++) {
+        if (data->hosts[i].active == 0) {
+            strncpy(data->hosts[i].ip, ip, IP_LENGTH - 1);
+            data->hosts[i].active = 1;
+            data->hosts[i].last_update = time(NULL);
+            return i;
+        }
+    }
+
     // Crear nuevo host si hay espacio
     if (data->num_hosts < MAX_HOSTS) {
         int idx = data->num_hosts;
@@ -163,7 +175,17 @@ void* handle_client(void *arg) {
         int bytes = recv(client_fd, buffer, BUFFER_SIZE - 1, 0);
         
         if (bytes <= 0) {
+
             log_message("INFO", "Cliente desconectado");
+
+            // buscamos el cliente que se desconecta, cambiamos la flag de actividad y seteamos el ultimo cambio a cero.
+            for (int i = 0; i < shared_data->num_hosts; i++) {
+                if (strcmp(shared_data->hosts[i].ip, ip) == 0) {
+                    shared_data->hosts[i].active = 0;
+                    shared_data->hosts[i].last_update = 0;
+
+                }
+            }
             break;
         }
         
