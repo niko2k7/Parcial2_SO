@@ -173,6 +173,7 @@ void* handle_client(void *arg) {
         if (type != MSG_UNKNOWN) {
             update_host_data(shared_data, semid, ip, type, metrics);
             
+            /*
             char log_msg[256];
             if (type == MSG_CPU) {
                 snprintf(log_msg, sizeof(log_msg), 
@@ -182,6 +183,7 @@ void* handle_client(void *arg) {
                          "MEM %s: %.1fMB usado", ip, metrics[0]);
             }
             log_message("INFO", log_msg);
+            */
         }
     }
     

@@ -33,6 +33,45 @@ void cleanup_handler(int signum) {
     exit(0);
 }
 
+void *display_thread(void *arg) {
+    shared_data_t *shared_data = (shared_data_t *)arg;
+    
+    while (1) {
+        // Limpiar pantalla
+        printf("\033[2J\033[H");
+        
+        // Imprimir encabezado
+        printf("%-15s %-8s %-11s %-11s %-11s %-13s %-13s\n", 
+               "IP", "CPU%", "CPU_user%", "CPU_sys%", "CPU_idle%", "Mem_used_MB", "Mem_free_MB");
+        
+        sem_wait(semid_global);
+        
+        for (int i = 0; i < shared_data->num_hosts; i++) {
+             host_info_t *host = &shared_data->hosts[i];
+             time_t now = time(NULL);
+             
+             // Verificar si el host tiene datos recientes
+             if (now - host->last_update > UPDATE_TIMEOUT) { // Usamos el timeout de config
+                 printf("%-15s %-8s %-11s %-11s %-11s %-13s %-13s\n", 
+                        host->ip, "--", "--", "--", "--", "--", "--");
+             } else {
+                 printf("%-15s %-8.1f %-11.1f %-11.1f %-11.1f %-13.0f %-13.0f\n",
+                    host->ip,
+                    host->cpu_usage,
+                    host->cpu_user,
+                    host->cpu_system,
+                    host->cpu_idle,
+                    host->mem_used_mb,
+                    host->mem_free_mb);
+             }
+        }
+        
+        sem_signal(semid_global);
+        sleep(1);
+    }
+    return NULL;
+}
+
 int main(int argc, char *argv[]) {
     if (argc != 2) {
         fprintf(stderr, "Uso: %s <puerto>\n", argv[0]);
@@ -86,16 +125,13 @@ int main(int argc, char *argv[]) {
         return EXIT_FAILURE;
     }
     
-    printf("\n");
-    printf("╔════════════════════════════════════════════════════════════╗\n");
-    printf("║          COLLECTOR - Monitor Distribuido                  ║\n");
-    printf("╠════════════════════════════════════════════════════════════╣\n");
-    printf("║  Puerto: %-49d ║\n", port);
-    printf("║  Memoria compartida: 0x%04X                               ║\n", SHM_KEY);
-    printf("║  Semáforo: 0x%04X                                         ║\n", SEM_KEY);
-    printf("║  Máximo de hosts: %-40d ║\n", MAX_HOSTS);
-    printf("╚════════════════════════════════════════════════════════════╝\n");
-    printf("\n");
+    // Start display thread
+    pthread_t display_tid;
+    if (pthread_create(&display_tid, NULL, display_thread, shared_data) != 0) {
+        perror("pthread_create display");
+    }
+    pthread_detach(display_tid);
+
     
     // Loop principal: aceptar conexiones
     while (1) {
