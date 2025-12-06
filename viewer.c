@@ -1,41 +1,133 @@
 #include <stdio.h>
-#include <sys/socket.h>
-#include <arpa/inet.h>
-#include <strings.h>
-#include <unistd.h>
+#include <stdlib.h>
 #include <string.h>
-#define PORT 3535
-#define BACKLOG 4
+#include <unistd.h>
+#include <time.h>
+#include <sys/ipc.h>
+#include <sys/shm.h>
+#include <sys/sem.h>
 
+// Configuración (debe coincidir con collector)
+#define MAX_HOSTS 4
+#define IP_LENGTH 32
+#define SHM_KEY 0x1234
+#define SEM_KEY 0x5678
+#define REFRESH_INTERVAL 2
+#define INACTIVE_TIMEOUT 10
+
+// Estructuras (deben coincidir con collector)
+typedef struct {
+    char ip[IP_LENGTH];
+    float cpu_usage;
+    float cpu_user;
+    float cpu_system;
+    float cpu_idle;
+    float mem_used_mb;
+    float mem_free_mb;
+    float swap_total_mb;
+    float swap_free_mb;
+    time_t last_update;
+    int active;
+} host_info_t;
+
+typedef struct {
+    host_info_t hosts[MAX_HOSTS];
+    int num_hosts;
+} shared_data_t;
+
+void sem_wait_op(int semid) {
+    struct sembuf sb = {0, -1, 0};
+    semop(semid, &sb, 1);
+}
+
+void sem_signal_op(int semid) {
+    struct sembuf sb = {0, 1, 0};
+    semop(semid, &sb, 1);
+}
+
+void clear_screen() {
+    printf("\033[2J\033[H");
+    fflush(stdout);
+}
+
+void display_table(shared_data_t *data, int semid) {
+    clear_screen();
+    
+    printf("\n╔════════════════════════════════════════════════════════════════════════════════════╗\n");
+    printf("║                    MONITOR DISTRIBUIDO - Vista en Tiempo Real                     ║\n");
+    printf("╚════════════════════════════════════════════════════════════════════════════════════╝\n\n");
+    
+    printf("╔═══════════════╦═══════╦═══════════╦══════════╦═══════════╦═════════════╦═════════════╗\n");
+    printf("║ IP            ║ CPU%%  ║ CPU_user%% ║ CPU_sys%% ║ CPU_idle%% ║ Mem_used_MB ║ Mem_free_MB ║\n");
+    printf("╠═══════════════╬═══════╬═══════════╬══════════╬═══════════╬═════════════╬═════════════╣\n");
+    
+    sem_wait_op(semid);
+    
+    if (data->num_hosts == 0) {
+        printf("║ Sin datos     ║    -- ║        -- ║       -- ║        -- ║          -- ║          -- ║\n");
+    } else {
+        time_t now = time(NULL);
+        for (int i = 0; i < data->num_hosts && i < MAX_HOSTS; i++) {
+            host_info_t *host = &data->hosts[i];
+            int is_active = (now - host->last_update) < INACTIVE_TIMEOUT && host->active;
+            
+            if (is_active) {
+                printf("║ %-13s ║ %5.1f ║     %5.1f ║    %5.1f ║     %5.1f ║   %9.2f ║   %9.2f ║\n",
+                       host->ip, host->cpu_usage, host->cpu_user, host->cpu_system,
+                       host->cpu_idle, host->mem_used_mb, host->mem_free_mb);
+            } else {
+                printf("║ %-13s ║    -- ║        -- ║       -- ║        -- ║          -- ║          -- ║\n",
+                       host->ip);
+            }
+        }
+    }
+    
+    sem_signal_op(semid);
+    
+    printf("╚═══════════════╩═══════╩═══════════╩══════════╩═══════════╩═════════════╩═════════════╝\n");
+    
+    time_t now = time(NULL);
+    char *time_str = ctime(&now);
+    time_str[strlen(time_str) - 1] = '\0';
+    printf("\nÚltima actualización: %s\n", time_str);
+    printf("Presiona Ctrl+C para salir\n");
+}
 
 int main() {
-    struct sockaddr_in server, client;
-
-    int fd = socket(AF_INET, SOCK_STREAM, 0);
-    char buffer[256];
-
-    // Validar error
-    server.sin_family = AF_INET;
-    server.sin_port = htons(PORT); // htons para el endianismo del puerto
-    server.sin_addr.s_addr = INADDR_ANY;  
-    bzero(&(server.sin_zero), 8);
-
-    int r = bind(fd, (struct sockaddr *)&server, sizeof(struct sockaddr)); // Añadir en el cast 'struct'
-    // Validar si error
-    if(r == -1){
-        perror("Error server bind");
+    printf("Iniciando Viewer...\n");
+    
+    // Obtener memoria compartida
+    int shmid = shmget(SHM_KEY, sizeof(shared_data_t), 0666);
+    if (shmid == -1) {
+        fprintf(stderr, "Error: No se pudo acceder a la memoria compartida.\n");
+        fprintf(stderr, "Asegúrate de que el collector esté ejecutándose.\n");
+        return 1;
     }
-
-    r = listen(fd, BACKLOG);
-    // Validar si error
-    int size = sizeof(struct sockaddr_in);
-    int fd2 = accept(fd, (struct sockaddr *)&client, &size); // Nuevo socket -> Nuevo descriptor -> Nuevo socket
-    // Nota: fork(), crea un hijo para que atienda el cliente, y el padre quede esperando en el accept. En el caso de este código, se crea un modelo de un solo cliente
-    r = send(fd2, "Conexión realizada correctamente", 33, 0);
-    r = recv(fd2, buffer, sizeof(buffer), 0);
-
-    printf("%s", buffer);
-    close(fd2);
-    close(fd);
+    
+    shared_data_t *shared_data = (shared_data_t *)shmat(shmid, NULL, 0);
+    if (shared_data == (void*)-1) {
+        perror("shmat");
+        return 1;
+    }
+    
+    // Obtener semáforo
+    int semid = semget(SEM_KEY, 1, 0666);
+    if (semid == -1) {
+        perror("semget");
+        shmdt(shared_data);
+        fprintf(stderr, "Error: No se pudo acceder al semáforo.\n");
+        return 1;
+    }
+    
+    printf("Conectado a memoria compartida (0x%04X)\n", SHM_KEY);
+    printf("Actualizando cada %d segundos...\n\n", REFRESH_INTERVAL);
+    sleep(1);
+    
+    while (1) {
+        display_table(shared_data, semid);
+        sleep(REFRESH_INTERVAL);
+    }
+    
+    shmdt(shared_data);
     return 0;
 }
