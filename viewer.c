@@ -53,18 +53,13 @@ void clear_screen() {
 void display_table(shared_data_t *data, int semid) {
     clear_screen();
     
-    printf("\n╔════════════════════════════════════════════════════════════════════════════════════╗\n");
-    printf("║                    MONITOR DISTRIBUIDO - Vista en Tiempo Real                     ║\n");
-    printf("╚════════════════════════════════════════════════════════════════════════════════════╝\n\n");
-    
-    printf("╔═══════════════╦═══════╦═══════════╦══════════╦═══════════╦═════════════╦═════════════╗\n");
-    printf("║ IP            ║ CPU%%  ║ CPU_user%% ║ CPU_sys%% ║ CPU_idle%% ║ Mem_used_MB ║ Mem_free_MB ║\n");
-    printf("╠═══════════════╬═══════╬═══════════╬══════════╬═══════════╬═════════════╬═════════════╣\n");
+    // Encabezado de la tabla (formato simple como pide el profesor)
+    printf("IP            CPU%%    CPU_user%%  CPU_sys%%  CPU_idle%%  Mem_used_MB  Mem_free_MB\n");
     
     sem_wait_op(semid);
     
     if (data->num_hosts == 0) {
-        printf("║ Sin datos     ║    -- ║        -- ║       -- ║        -- ║          -- ║          -- ║\n");
+        printf("Sin datos\n");
     } else {
         time_t now = time(NULL);
         for (int i = 0; i < data->num_hosts && i < MAX_HOSTS; i++) {
@@ -72,25 +67,23 @@ void display_table(shared_data_t *data, int semid) {
             int is_active = (now - host->last_update) < INACTIVE_TIMEOUT && host->active;
             
             if (is_active) {
-                printf("║ %-13s ║ %5.1f ║     %5.1f ║    %5.1f ║     %5.1f ║   %9.2f ║   %9.2f ║\n",
-                       host->ip, host->cpu_usage, host->cpu_user, host->cpu_system,
-                       host->cpu_idle, host->mem_used_mb, host->mem_free_mb);
+                printf("%-13s  %5.1f   %8.1f   %7.1f   %9.1f   %11.0f   %11.0f\n",
+                       host->ip,
+                       host->cpu_usage,
+                       host->cpu_user,
+                       host->cpu_system,
+                       host->cpu_idle,
+                       host->mem_used_mb,
+                       host->mem_free_mb);
             } else {
-                printf("║ %-13s ║    -- ║        -- ║       -- ║        -- ║          -- ║          -- ║\n",
-                       host->ip);
+                printf("%-13s  --      --         --        --          --           --\n", host->ip);
             }
         }
     }
     
     sem_signal_op(semid);
     
-    printf("╚═══════════════╩═══════╩═══════════╩══════════╩═══════════╩═════════════╩═════════════╝\n");
-    
-    time_t now = time(NULL);
-    char *time_str = ctime(&now);
-    time_str[strlen(time_str) - 1] = '\0';
-    printf("\nÚltima actualización: %s\n", time_str);
-    printf("Presiona Ctrl+C para salir\n");
+    printf("\n");
 }
 
 int main() {
