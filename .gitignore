@@ -1,0 +1,29 @@
+# Archivos compilados
+*.o
+*.a
+*.so
+*.out
+*.exe
+
+# Archivos de dependencias
+*.d
+
+# Carpetas de build
+/build/
+/bin/
+/obj/
+
+# Archivos de debugging
+*.gch
+*.pch
+*.gcda
+*.gcno
+*.gcov
+
+# Archivos del sistema
+.DS_Store
+Thumbs.db
+
+# Archivos de editores
+.vscode/
+.idea/
