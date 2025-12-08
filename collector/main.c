@@ -11,10 +11,12 @@
 #include "network.h"
 
 // Variables globales para limpieza
-int shmid_global = -1;
-int semid_global = -1;
-int server_fd_global = -1;
+int shmid_global = -1;       // id memoria compartida
+int semid_global = -1;       // id de semaforos
+int server_fd_global = -1;   // descriptor de archivo del socked en el listener
 
+
+// limpiar datos/ signal handler ----------------------------------------------------------------------------------
 void cleanup_handler(int signum) {
     (void)signum;  // Marcar como no usado
     printf("\nLimpiando recursos...\n");
@@ -32,7 +34,10 @@ void cleanup_handler(int signum) {
     printf("Collector terminado\n");
     exit(0);
 }
+//------------------------------------------------------------------------------------------------
 
+
+// creacion de hilo para la muestra de info en la pantalla ---------------------------------------
 void *display_thread(void *arg) {
     shared_data_t *shared_data = (shared_data_t *)arg;
     
@@ -71,6 +76,10 @@ void *display_thread(void *arg) {
     }
     return NULL;
 }
+//------------------------------------------------------------------------------------------------
+
+
+
 
 int main(int argc, char *argv[]) {
     if (argc != 2) {
@@ -87,7 +96,7 @@ int main(int argc, char *argv[]) {
     printf("Iniciando Collector...\n");
     
     // Configurar señales
-    signal(SIGINT, cleanup_handler);
+    signal(SIGINT, cleanup_handler);  
     signal(SIGTERM, cleanup_handler);
     
     // Inicializar memoria compartida
