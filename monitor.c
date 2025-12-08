@@ -8,6 +8,8 @@
 
 void getMemInfo(char *buffer, char *ip_logica){
     
+    // abrimos el archivo con datos de memoria
+    // funcion memoria ---------------------------------------------------------------------------
     FILE *f = fopen("/proc/meminfo", "r");
 
     if (!f) {
@@ -46,9 +48,14 @@ void getMemInfo(char *buffer, char *ip_logica){
 
     return;
 }
+    //--------------------------------------------------------------------------------------------------
 
 
+
+
+    // funcion cpu -------------------------------------------------------------------------------------
 void getCpuInfo(char *buffer, char *ip_logica) {
+    
     // 1. Variables estáticas: Conservan su valor entre llamadas para calcular el "delta"
     static unsigned long p_user = 0, p_nice = 0, p_system = 0, p_idle = 0;
     static unsigned long p_iowait = 0, p_irq = 0, p_softirq = 0, p_steal = 0;
@@ -64,8 +71,7 @@ void getCpuInfo(char *buffer, char *ip_logica) {
 
     // 2. Leemos los valores actuales
     // Formato: cpu  user nice system idle iowait irq softirq steal
-    if (fscanf(f, "%s %lu %lu %lu %lu %lu %lu %lu %lu", 
-               cpu_label, &user, &nice, &system, &idle, &iowait, &irq, &softirq, &steal) < 9) {
+    if (fscanf(f, "%s %lu %lu %lu %lu %lu %lu %lu %lu", cpu_label, &user, &nice, &system, &idle, &iowait, &irq, &softirq, &steal) < 9) {
         fprintf(stderr, "Error leyendo /proc/stat\n");
         fclose(f);
         return;
@@ -117,7 +123,11 @@ void getCpuInfo(char *buffer, char *ip_logica) {
              system_pct, 
              idle_pct);
 }
+    //--------------------------------------------------------------------------------------------------
 
+
+
+    // Nos conectamos con el proceso viewer-------------------------------------------------------------
 int connectToViewer(char *ip_recolector, int puerto){
     struct sockaddr_in client;
     
@@ -142,12 +152,16 @@ int connectToViewer(char *ip_recolector, int puerto){
     }
     return fd;
 }
+    //--------------------------------------------------------------------------------------------------
 
 
 // ./monitor    ip_recolector  puerto   ip_máquina
 // argv[1] ip_recolector
 // argv[2] puerto
-// argv[3] ip_lógica_máquina
+// argv[3] ip_lógica_máquina\
+
+
+// argc y el puntero argv[] son propios del SO
 int main(int argc, char *argv[]) {
 
     if(argc != 4){
@@ -168,6 +182,9 @@ int main(int argc, char *argv[]) {
     
     printf("Conectado. Iniciando envío de datos...\n");
     
+
+    // envio cada 2 segundos de informacion
+    // dejamos de enviar mensajes cuando el servidor rechaza conexion
     while(1){
         getMemInfo(buffer, ip_logica);
         if(send(socket_fd, buffer, strlen(buffer), 0) < 0){
@@ -187,6 +204,7 @@ int main(int argc, char *argv[]) {
 
     return 0;
 }
+
 
 
 
