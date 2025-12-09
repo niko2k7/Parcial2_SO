@@ -6,7 +6,7 @@ Este proyecto implementa un sistema de monitoreo distribuido cliente-servidor pa
 
 ## 🏗️ Arquitectura del Sistema
 
-El sistema se compone de tres partes principales:
+El sistema se compone de dos partes principales:
 
 1.  **Monitor (Agente/Cliente)**: Se ejecuta en cada máquina que queremos monitorear. Recolecta estadísticas del sistema y las envía al servidor.
 2.  **Collector (Servidor Central)**: Recibe los datos de todos los monitores, los procesa y los almacena en memoria compartida.
@@ -29,7 +29,7 @@ Este es el agente que recolecta la información.
     *   Formatos: `MEM;...` y `CPU;...`.
 
 ### 2. Collector (`collector/`)
-El cerebro del sistema. Maneja múltiples conexiones y concurrencia.
+El cerebro del sistema. Maneja múltiples conexiones y concurrencia. Muestra la tabla con las máquinas y sus recursos.
 
 #### `main.c` (Gestor Principal)
 *   **Inicialización**: Configura la Memoria Compartida y los Semáforos (System V IPC) para guardar los datos de los hosts.
@@ -44,10 +44,6 @@ El cerebro del sistema. Maneja múltiples conexiones y concurrencia.
 
 #### `shared_data.c` (Gestión de Recursos)
 *   Encapsula las llamadas al sistema operativo (`shmget`, `shmat`, `semget`, `semop`) para facilitar el uso de memoria compartida y semáforos, manteniendo el código principal limpio.
-
-### 3. Viewer (`viewer.c`)
-*   Este es un componente básico (posiblemente una versión antigua o de prueba) que actúa como un servidor simple que acepta una sola conexión, imprime un mensaje y se cierra.
-*   **Nota**: La funcionalidad completa de visualización está actualmente integrada en el `Collector` (`display_thread` en `main.c`), por lo que este archivo no es el visualizador principal del proyecto final.
 
 ---
 
@@ -72,8 +68,11 @@ El cerebro del sistema. Maneja múltiples conexiones y concurrencia.
 ### 1. Compilar y Correr el Servidor (Collector)
 En la terminal del servidor:
 ```bash
+# Compilar collector.c (con make):
 cd collector
 make
+
+# Ejecutar: ./collector <PUERTO>
 ./collector 8080
 ```
 *(El servidor quedará esperando conexiones e imprimiendo la tabla)*
@@ -81,15 +80,16 @@ make
 ### 2. Compilar y Correr el Agente (Monitor)
 En la terminal de la máquina a monitorear (o en otra terminal si es local):
 ```bash
-# Compilar monitor.c (si no tienes Makefile en raíz):
-gcc monitor.c -o monitor
+# Compilar monitor.c (con make):
+cd collector
+make
 
 # Ejecutar: ./monitor <IP_SERVIDOR> <PUERTO> <IP_LOGICA_ESTA_MAQUINA>
 ./monitor 127.0.0.1 8080 192.168.1.50
 ```
 *   `IP_SERVIDOR`: IP donde corre el collector (usar `127.0.0.1` si es la misma máquina).
 *   `PUERTO`: El mismo puerto que abrió el collector (ej. 8080).
-*   `IP_LOGICA`: Un identificador (IP falsa o nombre) para mostrar en la tabla.
+*   `IP_LOGICA`: Un identificador (IP lógica) para mostrar en la tabla.
 
 ---
 **Desarrollado para la asignatura Sistemas Operativos - Parcial 2**
