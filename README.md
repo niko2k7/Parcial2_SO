@@ -1,3 +1,4 @@
+
 # Sistema de Monitoreo Distribuido (Parcial 2 SO)
 
 Este proyecto implementa un sistema de monitoreo distribuido cliente-servidor para visualizar el estado (CPU y Memoria) de múltiples máquinas remotas en tiempo real. Utiliza Sockets TCP para la comunicación a través de la red y Mecanismos de IPC (Memoria Compartida y Semáforos) para la gestión eficiente de datos en el servidor.
@@ -25,7 +26,7 @@ Este es el agente que recolecta la información.
     *   `/proc/stat`: Para datos de uso de CPU (Usuario, Sistema, Idle).
 *   **Comunicación**:
     *   Se conecta vía Socket TCP al `Collector`.
-    *   Envía mensajes formateados cada 2 segundos.
+    *   Envía mensajes formateados cada segundo.
     *   Formatos: `MEM;...` y `CPU;...`.
 
 ### 2. Collector (`collector/`)
